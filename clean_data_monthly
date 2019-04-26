@@ -1,0 +1,71 @@
+import os
+import numpy as np
+import pandas as pd
+import re
+import matplotlib.pyplot as plt
+from math import trunc
+
+os.chdir(r'G:\term_structure\data\monthly')
+
+def carga_datos(filename):
+    """Carga datos de la carpeta de datos.
+    La base de datos contener información de 12 períodos """
+    
+    # Carga de datos,creación de variables, fechas disponibles
+    df = pd.read_csv(filename, index_col = 'FE_PUBLI')
+    df['DISCOUNT'] = df['PRECIO']/10
+    df['YIELD'] = -100*np.log(df['DISCOUNT'])/(df['PLAZO']/360)
+
+    dates = list(df.index); dates = list(dict.fromkeys(dates))
+    
+    return df, dates
+
+# Crea 12 dataframes, uno por cada mes
+arr = ['m01','m02','m03','m04','m05','m06',
+       'm07','m08','m09','m10','m11','m12']
+    
+def split_df(arr, df, dates):
+    """ Devuelve 12 dataframes, uno para cada mes contenido en el dataframe completo"""
+
+    for i in range(len(arr)):
+        exec(arr[i] + ' = df.loc[dates[i]]')
+        exec(arr[i] + ' = ' + arr[i] + '[["PLAZO","DISCOUNT","YIELD"]]')
+        exec(arr[i] + ' = ' + arr[i] + '.sort_values("PLAZO")')
+        exec(arr[i] + '["PLAZO"] = ' + arr[i] + '["PLAZO"].astype(int)')
+        exec(arr[i] + ' = ' + arr[i] + '.set_index("PLAZO")')
+    
+    return arr[0], arr[1], arr[2], arr[3], arr[4], arr[5], arr[6], arr[7], arr[8], arr[9], arr[10], arr[11]
+    
+                    'MAT_ABOVE':MAT_ABOVE, 'BELOW':BELOW, 'ABOVE':ABOVE, 'YIELD': YIELD})
+
+# Almacena madureces para interpolación, extrae rendimientos de df e interpola
+for j in range(len(df2)):
+    
+    # Crea madureces para interpolación
+    if ((j+1)*30.4375) % 1 == 0:
+        df2.iat[j, 2] = (j+1)*30.4375
+        df2.iat[j, 3] = (j+1)*30.4375
+        
+    else:
+        df2.iat[j, 2] = trunc((j+1)*30.4375 - 1)
+        df2.iat[j, 3] = trunc((j+1)*30.4375 + 1)
+    
+    # Extrae rendimientos para interpolación
+    below = m01['YIELD'].iloc[df2.iat[j, 2]]
+    df2.iat[j, 4] = below
+    
+    above = m01['YIELD'].iloc[df2.iat[j, 3]]
+    df2.iat[j, 5] = above
+    
+    # Interpolación
+    if df2['MAT_BELOW'].loc[j] == df2['MAT_BELOW'].loc[j]:
+        df2['YIELD'].loc[j] = df2['BELOW'].loc[j] # No hay que interpolar
+
+    else:
+        x = df2['MAT_DAY'].loc[j]
+        x0 = df2['MAT_BELOW'].loc[j]; x0 = x0.astype(float)
+        x1 = df2['MAT_ABOVE'].loc[j]; x1 = x1.astype(float)
+        y0 = df2['BELOW'].loc[j]
+        y1 = df2['ABOVE'].loc[j]        
+                
+        df2['YIELD'].loc[j] = y0 + (x - x0)(y1-y0)/(x1-x0)
