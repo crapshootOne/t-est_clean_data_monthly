@@ -14,9 +14,8 @@ For more information you can consult Valmer's methodology contained in the repos
 
 For this project, we use end-of-month's yield curve as the observed one in that month. We calculate yields using the following algorithm:
  - Use the implied discount curve to calculate the zero coupond yield using the following formula:
-    # y = -100*log(p)/(1/360)
-    # y = yield
-    # p = discount factor
+ y = -100*log(p)/(1/360)
+ y = yield
+ p = discount factor
     
-  - We calculate yields for maturities ranging from 1 to 120 months wehre 1 month is equivalent to 30.4375 days.
-    # To obtain yields with maturities of multiples of 30.4375 days, we linearly interpolate using the nearest lower and upper observations.
+  - We calculate yields for maturities ranging from 1 to 120 months wehre 1 month is equivalent to 30.4375 days. To obtain yields with maturities of multiples of 30.4375 days, we linearly interpolate using the nearest lower and upper observations.
