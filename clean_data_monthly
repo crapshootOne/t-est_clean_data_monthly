@@ -1,71 +1,127 @@
 import os
 import numpy as np
 import pandas as pd
-import re
-import matplotlib.pyplot as plt
 from math import trunc
 
 os.chdir(r'G:\term_structure\data\monthly')
 
-def carga_datos(filename):
-    """Carga datos de la carpeta de datos.
-    La base de datos contener información de 12 períodos """
+def load_data(filename):
+    """Load csv data:
     
-    # Carga de datos,creación de variables, fechas disponibles
+    * 12 months
+    * last line contain information about the number of observations contained in data"""
+    
+    # Read csv data from  folder, creates variales for discount factor  and implicit yieldto  maturity  
     df = pd.read_csv(filename, index_col = 'FE_PUBLI')
-    df['DISCOUNT'] = df['PRECIO']/10
-    df['YIELD'] = -100*np.log(df['DISCOUNT'])/(df['PLAZO']/360)
+    df['DISCOUNT'] = df['PRECIO']/10 # Nominal price is 10 pesos
+    df['YIELD'] = -100*np.log(df['DISCOUNT'])/(df['PLAZO']/360) # Calculate yields from discount curve
 
     dates = list(df.index); dates = list(dict.fromkeys(dates))
+    dates = dates [:-1]
     
     return df, dates
+    
+def split_df(df, date):
+    """ Returns a dataframe, for one month"""
+    
+    df1 = df.loc[date]
+    df1 = df1[["PLAZO","DISCOUNT","YIELD"]]
+    df1 = df1.sort_values("PLAZO")
+    df1['PLAZO'] = df1['PLAZO'].astype(int)
+    df1 = df1.set_index("PLAZO")
+    
+    return df1
+    
+def create_dataframe_monthly_maturity():
+    # Dataframe con madureces mensuales [1 mes = 30.4375]
+    MAT_MONTH = np.array(list(range(1,121))) # Madureces en meses
+    MAT_DAY = MAT_MONTH*30.4375 # Madureces en días
+    MAT_BELOW = np.array([int(0)]*120) # 
+    MAT_ABOVE = np.array([int(0)]*120) # 
+    BELOW = np.array([0.0]*120) # 
+    ABOVE = np.array([0.0]*120) # 
+    YIELD = np.array([0.0]*120) # 
 
-# Crea 12 dataframes, uno por cada mes
-arr = ['m01','m02','m03','m04','m05','m06',
-       'm07','m08','m09','m10','m11','m12']
+    # Crea dataframe
+    monthly_df = pd.DataFrame({'MAT_MONTH':MAT_MONTH, 'MAT_DAY':MAT_DAY, 'MAT_BELOW':MAT_BELOW, 
+                        'MAT_ABOVE':MAT_ABOVE, 'BELOW':BELOW, 'ABOVE':ABOVE, 'YIELD': YIELD})
     
-def split_df(arr, df, dates):
-    """ Devuelve 12 dataframes, uno para cada mes contenido en el dataframe completo"""
+    for j in range(len(monthly_df)):
+        # Crea madureces para interpolación
+        if ((j+1)*30.4375) % 1 == 0:
+            monthly_df.iat[j, 2] = (j+1)*30.4375
+            monthly_df.iat[j, 3] = (j+1)*30.4375
 
-    for i in range(len(arr)):
-        exec(arr[i] + ' = df.loc[dates[i]]')
-        exec(arr[i] + ' = ' + arr[i] + '[["PLAZO","DISCOUNT","YIELD"]]')
-        exec(arr[i] + ' = ' + arr[i] + '.sort_values("PLAZO")')
-        exec(arr[i] + '["PLAZO"] = ' + arr[i] + '["PLAZO"].astype(int)')
-        exec(arr[i] + ' = ' + arr[i] + '.set_index("PLAZO")')
+        else:
+            monthly_df.iat[j, 2] = trunc((j+1)*30.4375 - 1)
+            monthly_df.iat[j, 3] = trunc((j+1)*30.4375 + 1)
     
-    return arr[0], arr[1], arr[2], arr[3], arr[4], arr[5], arr[6], arr[7], arr[8], arr[9], arr[10], arr[11]
+    return monthly_df
     
-                    'MAT_ABOVE':MAT_ABOVE, 'BELOW':BELOW, 'ABOVE':ABOVE, 'YIELD': YIELD})
+def get_monthly_yields(monthly_mat_df, daily_mat_df):
+    """Extract yields from daily maturities dataframe 
+    and interpolates to obtain maturities of multiples of 30.4375 days
+    
+    monthly_mat_df: dataframe of length = 120
+    daily_mat_df: dataframe with information of daily maturities"""
+    
+    for j in range(len(monthly)):
 
-# Almacena madureces para interpolación, extrae rendimientos de df e interpola
-for j in range(len(df2)):
-    
-    # Crea madureces para interpolación
-    if ((j+1)*30.4375) % 1 == 0:
-        df2.iat[j, 2] = (j+1)*30.4375
-        df2.iat[j, 3] = (j+1)*30.4375
-        
-    else:
-        df2.iat[j, 2] = trunc((j+1)*30.4375 - 1)
-        df2.iat[j, 3] = trunc((j+1)*30.4375 + 1)
-    
-    # Extrae rendimientos para interpolación
-    below = m01['YIELD'].iloc[df2.iat[j, 2]]
-    df2.iat[j, 4] = below
-    
-    above = m01['YIELD'].iloc[df2.iat[j, 3]]
-    df2.iat[j, 5] = above
-    
-    # Interpolación
-    if df2['MAT_BELOW'].loc[j] == df2['MAT_BELOW'].loc[j]:
-        df2['YIELD'].loc[j] = df2['BELOW'].loc[j] # No hay que interpolar
+        # Extrae rendimientos para interpolación
+        below = daily_mat_df['YIELD'].iloc[monthly_mat_df.iat[j, 2]]
+        monthly_mat_df.iat[j, 4] = below
 
-    else:
-        x = df2['MAT_DAY'].loc[j]
-        x0 = df2['MAT_BELOW'].loc[j]; x0 = x0.astype(float)
-        x1 = df2['MAT_ABOVE'].loc[j]; x1 = x1.astype(float)
-        y0 = df2['BELOW'].loc[j]
-        y1 = df2['ABOVE'].loc[j]        
-                
-        df2['YIELD'].loc[j] = y0 + (x - x0)(y1-y0)/(x1-x0)
+        above = daily_mat_df['YIELD'].iloc[monthly_mat_df.iat[j, 3]]
+        monthly_mat_df.iat[j, 5] = above
+
+        # Interpolación
+        if monthly_mat_df['MAT_BELOW'].loc[j] == monthly_mat_df['MAT_BELOW'].loc[j]:
+            monthly_mat_df['YIELD'].loc[j] = monthly_mat_df['BELOW'].loc[j] # Not necessary to interpolate 
+
+        else:
+            x = monthly_mat_df['MAT_DAY'].loc[j]
+            x0 = monthly_mat_df['MAT_BELOW'].loc[j]; x0 = x0.astype(float)
+            x1 = monthly_mat_df['MAT_ABOVE'].loc[j]; x1 = x1.astype(float)
+            y0 = monthly_mat_df['BELOW'].loc[j]
+            y1 = monthly_mat_df['ABOVE'].loc[j]        
+
+            monthly_mat_df['YIELD'].loc[j] = y0 + (x - x0)(y1-y0)/(x1-x0)
+    
+    return monthly_mat_df
+    
+def get_dataframe_complete_year():
+    
+    jan_ = m01_1['YIELD']; feb_ = m02_1['YIELD']
+    mar_ = m03_1['YIELD']; apr_ = m04_1['YIELD']
+    may_ = m05_1['YIELD']; jun_ = m06_1['YIELD']
+    jul_ = m07_1['YIELD']; aug_ = m08_1['YIELD']
+    sep_ = m09_1['YIELD']; oct_ = m10_1['YIELD']
+    nov_ = m11_1['YIELD']; dic_ = m12_1['YIELD']
+    
+    yearly = pd.DataFrame({
+        dates[0]: jan_, dates[1]: feb_, dates[2]: mar_,
+        dates[3]: apr_, dates[4]: may_, dates[5]: jun_,
+        dates[6]: jul_, dates[7]: aug_, dates[8]: sep_,
+        dates[9]: oct_, dates[10]: nov_, dates[11]: dic_
+        })
+    
+    return yearly
+    
+arr1 = ['m01','m02','m03','m04','m05','m06',
+        'm07','m08','m09','m10','m11','m12']
+
+arr2 = ['m01_1','m02_1','m03_1','m04_1','m05_1','m06_1',
+        'm07_1','m08_1','m09_1','m10_1','m11_1','m12_1']
+
+filename = '2004.csv'
+df, dates = load_data(filename)
+
+for i in range(0,len(arr1)):
+    arr1[i] = split_df(df, dates[i])
+
+monthly = create_dataframe_monthly_maturity()
+
+for i in range(len(arr2)):
+    exec(arr2[i] + ' = get_monthly_yields(monthly, arr1[i])')
+
+data_for_one_year = get_dataframe_complete_year()
